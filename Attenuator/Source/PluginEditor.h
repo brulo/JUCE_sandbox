@@ -18,7 +18,8 @@
 //==============================================================================
 /**
 */
-class AttenuatorAudioProcessorEditor  : public AudioProcessorEditor
+class AttenuatorAudioProcessorEditor  : public AudioProcessorEditor,
+                                        public SliderListener
 {
 public:
     AttenuatorAudioProcessorEditor (AttenuatorAudioProcessor&);
@@ -27,11 +28,21 @@ public:
     //==============================================================================
     void paint (Graphics&) override;
     void resized() override;
+    void sliderValueChanged (Slider*) override;
 
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     AttenuatorAudioProcessor& processor;
+    Slider gainSlider;
+    Label gainLabel;
+    
+    //* from JuceDemoPlugin 
+    AttenuatorAudioProcessor& getProcessor() const
+    {
+        return static_cast<AttenuatorAudioProcessor&> (processor);
+    }
+    //*
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AttenuatorAudioProcessorEditor)
 };

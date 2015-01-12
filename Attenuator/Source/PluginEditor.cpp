@@ -11,14 +11,31 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+const int WIDTH = 150;
+const int HEIGHT = 150;
 
 //==============================================================================
 AttenuatorAudioProcessorEditor::AttenuatorAudioProcessorEditor (AttenuatorAudioProcessor& p)
-    : AudioProcessorEditor (&p), processor (p)
+    : AudioProcessorEditor (&p), 
+      processor (p),
+      gainSlider ("gain"),
+      gainLabel ("", "gain")
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (400, 300);
+    setSize (WIDTH, HEIGHT);
+
+    // add some sliders..
+    addAndMakeVisible (gainSlider);
+    gainSlider.setSliderStyle (Slider::Rotary);
+    gainSlider.setTextBoxStyle (Slider::NoTextBox, true, 1, 1);
+    gainSlider.addListener (this);
+    gainSlider.setRange (0.0, 1.0, 0.01);
+
+    // add some labels for the sliders..
+    gainLabel.attachToComponent (&gainSlider, false);
+    gainLabel.setFont (Font (12.0f));
+    gainLabel.setJustificationType (Justification::centredBottom);
 }
 
 AttenuatorAudioProcessorEditor::~AttenuatorAudioProcessorEditor()
@@ -28,15 +45,31 @@ AttenuatorAudioProcessorEditor::~AttenuatorAudioProcessorEditor()
 //==============================================================================
 void AttenuatorAudioProcessorEditor::paint (Graphics& g)
 {
-    g.fillAll (Colours::white);
-
+    g.fillAll (Colours::white);  // Background.
+    
+    // Plugin title.
     g.setColour (Colours::black);
     g.setFont (15.0f);
-    g.drawFittedText ("Hello World!", getLocalBounds(), Justification::centred, 1);
+    g.drawFittedText ("The Attenuator", getLocalBounds(), Justification::centredTop, 1);
+}
+
+void AttenuatorAudioProcessorEditor::sliderValueChanged (Slider* slider)
+{
+    // It's vital to use setParameterNotifyingHost to change any parameters that are automatable
+    // by the host, rather than just modifying them directly, otherwise the host won't know
+    // that they've changed.
+    
+    if (slider == &gainSlider)
+    {
+        getProcessor().setParameterNotifyingHost (AttenuatorAudioProcessor::gainParam,
+                                                  (float) gainSlider.getValue());
+    }
 }
 
 void AttenuatorAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
+    
+    gainSlider.setBounds (0, 50, 150, 40);
 }

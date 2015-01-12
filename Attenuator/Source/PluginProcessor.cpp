@@ -13,8 +13,13 @@
 
 
 //==============================================================================
+// Parameter defaults.
+const float defaultGain = 0.75f;
+
+//==============================================================================
 AttenuatorAudioProcessor::AttenuatorAudioProcessor()
 {
+    gain = defaultGain;
 }
 
 AttenuatorAudioProcessor::~AttenuatorAudioProcessor()
@@ -29,26 +34,47 @@ const String AttenuatorAudioProcessor::getName() const
 
 int AttenuatorAudioProcessor::getNumParameters()
 {
-    return 0;
+    return totalNumParams;
 }
 
 float AttenuatorAudioProcessor::getParameter (int index)
 {
-    return 0.0f;
+    // This method will be called by the host, probably on the audio thread, so
+    // it's absolutely time-critical. Don't use critical sections or anything
+    // UI-related, or anything at all that may block in any way!
+    switch (index)
+    {
+        case gainParam:     return gain;
+        default:            return 0.0f;
+    }
 }
 
 void AttenuatorAudioProcessor::setParameter (int index, float newValue)
 {
+    // This method will be called by the host, probably on the audio thread, so
+    // it's absolutely time-critical. Don't use critical sections or anything
+    // UI-related, or anything at all that may block in any way!
+    switch (index)
+    {
+        case gainParam:     gain = newValue;  break;
+        default:            break;
+    }
 }
 
 const String AttenuatorAudioProcessor::getParameterName (int index)
 {
-    return String();
+    switch (index)
+    {
+        case gainParam:     return "gain";
+        default:            break;
+    }
+
+    return String::empty;
 }
 
 const String AttenuatorAudioProcessor::getParameterText (int index)
 {
-    return String();
+    return String (getParameter (index), 2);
 }
 
 const String AttenuatorAudioProcessor::getInputChannelName (int channelIndex) const
@@ -141,9 +167,6 @@ void AttenuatorAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuff
     // In case we have more outputs than inputs, this code clears any output
     // channels that didn't contain input data, (because these aren't
     // guaranteed to be empty - they may contain garbage).
-    // I've added this to avoid people getting screaming feedback
-    // when they first compile the plugin, but obviously you don't need to
-    // this code if your algorithm already fills all the output channels.
     for (int i = getNumInputChannels(); i < getNumOutputChannels(); ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
@@ -154,6 +177,7 @@ void AttenuatorAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuff
         float* channelData = buffer.getWritePointer (channel);
 
         // ..do something to the data...
+        buffer.applyGain(channel, 0, buffer.getNumSamples(), gain);
     }
 }
 
@@ -172,14 +196,35 @@ AudioProcessorEditor* AttenuatorAudioProcessor::createEditor()
 void AttenuatorAudioProcessor::getStateInformation (MemoryBlock& destData)
 {
     // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    // Here's an example of how you can use XML to make it easy and more robust:
+
+    // Create an outer XML element..
+    XmlElement xml ("MYPLUGINSETTINGS");
+
+    // add some attributes to it..
+    xml.setAttribute ("gain", gain);
+
+    // then use this helper function to stuff it into the binary blob and return it..
+    copyXmlToBinary (xml, destData);
 }
 
 void AttenuatorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+
+    // This getXmlFromBinary() helper function retrieves our XML from the binary blob..
+    ScopedPointer<XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+
+    if (xmlState != nullptr)
+    {
+        // make sure that it's actually our type of XML object..
+        if (xmlState->hasTagName ("MYPLUGINSETTINGS"))
+        {
+            // ok, now pull out our parameters..
+            gain  = (float) xmlState->getDoubleAttribute ("gain", gain);
+        }
+    }
 }
 
 //==============================================================================
